@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Rename the displayed extension and command category to JetBrains Finder.
+- Keep the Marketplace identifier and command IDs unchanged for existing installations.
+
 ## 0.4.0
 
 - Add Ctrl+Shift+R / Replace in Files in the same search and context-preview window.

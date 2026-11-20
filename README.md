@@ -1,4 +1,4 @@
-# JetBrains Finder for Linux
+# JetBrains Finder
 
 This is an **unofficial Linux x64 fork** of [JetBrains Finder for VS Code by Zeeshan Ahmad](https://github.com/ziishaned/jetbrains-finder-for-vscode), distributed by **Toximiner** under the original MIT license. It is not an official JetBrains product. The upstream version used for this fork is 0.3.66 (commit `96dc659`).
 
@@ -6,11 +6,13 @@ The original search and preview implementation is preserved. This fork adds a Li
 
 ## Install on Linux x64
 
-Install **JetBrains Finder for Linux** by **Toximiner** from [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Toximiner.jetbrains-finder-linux), or run:
+Install **JetBrains Finder** by **Toximiner** from [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Toximiner.jetbrains-finder-linux), or run:
 
 ```sh
 code --install-extension Toximiner.jetbrains-finder-linux
 ```
+
+The Marketplace identifier remains `Toximiner.jetbrains-finder-linux` so existing installations continue to receive updates.
 
 Alternatively download the Linux VSIX from [GitHub releases](https://github.com/Toximiner/jetbrains-finder-linux/releases) and use **Extensions: Install from VSIX…**. A SHA256 checksum is included with each release.
 
@@ -32,7 +34,7 @@ This is a VS Code-wide preference: **other editors may also open as modals**. Th
 
 ## Use
 
-Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. You can also run **JetBrains Finder Linux: Find in Files** from the Command Palette. A single-line editor selection is used as the initial query.
+Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. You can also run **JetBrains Finder: Find in Files** from the Command Palette. A single-line editor selection is used as the initial query.
 
 - Toggle case sensitivity, whole-word matching, and regular expressions beside the search field.
 - Search the whole workspace, a workspace folder, or a directory relative to each workspace folder.
@@ -47,7 +49,7 @@ The default shortcut replaces VS Code's built-in Find in Files shortcut while th
 
 ## Replace in Files
 
-Press **Ctrl+Shift+R** (or run **JetBrains Finder Linux: Replace in Files**). Enter the query and replacement, then choose **Replace Selected…** or **Replace All…**. Both show a before/after review; **Apply and Save** applies the edits with VS Code's WorkspaceEdit API and saves only the affected files. **Cancel** changes nothing. Empty replacement deletes matches; literal mode preserves `$` characters literally.
+Press **Ctrl+Shift+R** (or run **JetBrains Finder: Replace in Files**). Enter the query and replacement, then choose **Replace Selected…** or **Replace All…**. Both show a before/after review; **Apply and Save** applies the edits with VS Code's WorkspaceEdit API and saves only the affected files. **Cancel** changes nothing. Empty replacement deletes matches; literal mode preserves `$` characters literally.
 
 Regular-expression replacements support JavaScript substitutions such as `$1`, `$<name>`, `$$` and `$&`. The query must be supported by both ripgrep and JavaScript and agree on the match positions.
 
