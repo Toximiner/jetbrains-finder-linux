@@ -1,17 +1,18 @@
 const vscode = acquireVsCodeApi();
 const app = document.getElementById('app');
-app.innerHTML = `<main class="dialog"><header><div class="search-field"><span class="codicon codicon-search search-icon" aria-hidden="true"></span><input id="query" aria-label="Search text" autocomplete="off" spellcheck="false"><button class="toggle" id="clearQuery" title="Clear search" aria-label="Clear search" hidden><span class="codicon codicon-close" aria-hidden="true"></span></button><button class="toggle" id="case" title="Match case" aria-label="Match case" aria-pressed="false"><span class="codicon codicon-case-sensitive" aria-hidden="true"></span></button><button class="toggle" id="word" title="Match whole word" aria-label="Match whole word" aria-pressed="false"><span class="codicon codicon-whole-word" aria-hidden="true"></span></button><button class="toggle" id="regex" title="Regular expression" aria-label="Regular expression" aria-pressed="false"><span class="codicon codicon-regex" aria-hidden="true"></span></button></div></header><div class="scopes"><button class="scope active" data-scope="project">In Project</button><button class="scope" data-scope="folder">Workspace Folder</button><button class="scope" data-scope="directory">Directory</button><div id="roots" class="workspace-dropdown" hidden><button id="rootButton" class="workspace-trigger" aria-label="Workspace folder" aria-haspopup="listbox" aria-expanded="false"><span id="rootLabel"></span><span class="codicon codicon-chevron-down" aria-hidden="true"></span></button><div id="rootOptions" class="workspace-options" role="listbox" aria-label="Workspace folder" hidden></div></div><button id="directory" class="directory-picker" aria-label="Choose search directory" title="Choose search directory" hidden><span class="codicon codicon-folder-opened" aria-hidden="true"></span><span id="directoryPath"></span></button><span id="status" role="status"></span></div><div id="results" class="empty-state" role="listbox" aria-label="Search results" tabindex="0"><div class="empty">Type search query to find in files</div></div><div class="splitter" id="splitter" role="separator" aria-label="Resize search results" aria-orientation="horizontal" aria-controls="results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="34" tabindex="0" hidden></div><div class="preview-head" id="previewHead" hidden>Preview</div><div class="preview" id="preview" hidden><div class="empty">Select a result to preview its context.</div></div><footer><label class="new-tab"><input id="newTab" type="checkbox"> <span>Open results in new tab</span></label><button id="native" disabled>Open in Search View</button></footer></main>`;
+app.innerHTML = `<main class="dialog"><header><div class="search-field"><span class="codicon codicon-search search-icon" aria-hidden="true"></span><input id="query" aria-label="Search text" autocomplete="off" spellcheck="false"><button class="toggle" id="clearQuery" title="Clear search" aria-label="Clear search" hidden><span class="codicon codicon-close" aria-hidden="true"></span></button><button class="toggle" id="case" title="Match case" aria-label="Match case" aria-pressed="false"><span class="codicon codicon-case-sensitive" aria-hidden="true"></span></button><button class="toggle" id="word" title="Match whole word" aria-label="Match whole word" aria-pressed="false"><span class="codicon codicon-whole-word" aria-hidden="true"></span></button><button class="toggle" id="regex" title="Regular expression" aria-label="Regular expression" aria-pressed="false"><span class="codicon codicon-regex" aria-hidden="true"></span></button></div></header><div id="replaceBar" class="replace-bar" hidden><input id="replacement" aria-label="Replacement text" placeholder="Replace with" autocomplete="off" spellcheck="false"><button id="replaceOne" disabled>Replace Selected…</button><button id="replaceAll" disabled>Replace All…</button></div><div id="replaceNotice" class="replace-notice" role="status" hidden></div><div class="scopes"><button class="scope active" data-scope="project">In Project</button><button class="scope" data-scope="folder">Workspace Folder</button><button class="scope" data-scope="directory">Directory</button><div id="roots" class="workspace-dropdown" hidden><button id="rootButton" class="workspace-trigger" aria-label="Workspace folder" aria-haspopup="listbox" aria-expanded="false"><span id="rootLabel"></span><span class="codicon codicon-chevron-down" aria-hidden="true"></span></button><div id="rootOptions" class="workspace-options" role="listbox" aria-label="Workspace folder" hidden></div></div><button id="directory" class="directory-picker" aria-label="Choose search directory" title="Choose search directory" hidden><span class="codicon codicon-folder-opened" aria-hidden="true"></span><span id="directoryPath"></span></button><span id="status" role="status"></span></div><div id="results" class="empty-state" role="listbox" aria-label="Search results" tabindex="0"><div class="empty">Type search query to find in files</div></div><div class="splitter" id="splitter" role="separator" aria-label="Resize search results" aria-orientation="horizontal" aria-controls="results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="34" tabindex="0" hidden></div><div class="preview-head" id="previewHead" hidden>Preview</div><div class="preview" id="preview" hidden><div class="empty">Select a result to preview its context.</div></div><footer><label class="new-tab"><input id="newTab" type="checkbox"> <span>Open results in new tab</span></label><button id="native" disabled>Open in Search View</button></footer><section id="replacementReview" class="replacement-review" role="dialog" aria-modal="true" aria-labelledby="reviewTitle" hidden><h2 id="reviewTitle">Review replacement</h2><div id="reviewChanges" class="review-changes"></div><div class="review-actions"><span>Apply saves the changed files.</span><button id="cancelReplacement">Cancel</button><button id="applyReplacement">Apply and Save</button></div></section></main>`;
 const $ = id => document.getElementById(id);
 const query=$('query'), results=$('results'), preview=$('preview'), splitter=$('splitter');
 const savedState=vscode.getState()||{};
 let previewRatio=Number.isFinite(savedState.previewRatio)?Math.max(.08,Math.min(.85,savedState.previewRatio)):.47;
 preview.style.height=`${previewRatio*100}%`;
 let items=[], selected=-1, scope='project', timer, workspaceFolders=[], selectedRoot='';
+let searchComplete=false, resultTruncated=false, replaceBusy=false, currentPlan, replacementRequest=0;
 let previewInfo, previewSerial=0, previewFrame, selectedDirectory='';
 
 const options=()=>({query:query.value,caseSensitive:$('case').getAttribute('aria-pressed')==='true',wholeWord:$('word').getAttribute('aria-pressed')==='true',regex:$('regex').getAttribute('aria-pressed')==='true',scope,root:selectedRoot,directory:selectedDirectory});
-function schedule(){ $('clearQuery').hidden=!query.value; previewInfo=undefined; previewSerial++; clearTimeout(timer); items=[]; selected=-1; results.classList.add('empty-state'); results.innerHTML=query.value?'<div class="empty">Searching…</div>':'<div class="empty">Type search query to find in files</div>'; preview.hidden=true; splitter.hidden=true; $('previewHead').hidden=true; $('native').disabled=!query.value; $('status').textContent=''; preview.innerHTML='<div class="empty">Select a result to preview its context.</div>'; $('previewHead').textContent='Preview'; timer=setTimeout(()=>vscode.postMessage({type:'search',options:options()}),180); }
-function select(index){if (!items.length) return; previewInfo=undefined; previewSerial++; selected=Math.max(0,Math.min(index,items.length-1)); for(const el of results.querySelectorAll('.result')) el.classList.toggle('selected',Number(el.dataset.id)===selected); results.querySelector(`[data-id="${selected}"]`)?.scrollIntoView({block:'nearest'}); vscode.postMessage({type:'preview',id:selected,columns:previewColumns()});}
+function schedule(){ invalidateReplacement(); searchComplete=false; resultTruncated=false; updateReplacementButtons(); $('clearQuery').hidden=!query.value; previewInfo=undefined; previewSerial++; clearTimeout(timer); items=[]; selected=-1; results.classList.add('empty-state'); results.innerHTML=query.value?'<div class="empty">Searching…</div>':'<div class="empty">Type search query to find in files</div>'; preview.hidden=true; splitter.hidden=true; $('previewHead').hidden=true; $('native').disabled=!query.value; $('status').textContent=''; preview.innerHTML='<div class="empty">Select a result to preview its context.</div>'; $('previewHead').textContent='Preview'; timer=setTimeout(()=>vscode.postMessage({type:'search',options:options()}),180); }
+function select(index){if (!items.length) return; previewInfo=undefined; previewSerial++; selected=Math.max(0,Math.min(index,items.length-1)); updateReplacementButtons(); for(const el of results.querySelectorAll('.result')) el.classList.toggle('selected',Number(el.dataset.id)===selected); results.querySelector(`[data-id="${selected}"]`)?.scrollIntoView({block:'nearest'}); vscode.postMessage({type:'preview',id:selected,columns:previewColumns()});}
 function renderThemed(container,text,spans,start,end){
   if(!Array.isArray(spans))spans=[];
   container.textContent='';
@@ -106,15 +107,18 @@ window.addEventListener('resize',()=>closeRoots());
 function setScope(value){closeRoots();scope=value; document.querySelectorAll('.scope').forEach(b=>b.classList.toggle('active',b.dataset.scope===scope)); $('roots').hidden=scope!=='folder'; $('directory').hidden=scope!=='directory'; schedule();}
 for(const button of document.querySelectorAll('.scope')) button.addEventListener('click',()=>{if(button.dataset.scope==='directory'&&!selectedDirectory){vscode.postMessage({type:'chooseDirectory'});return;}setScope(button.dataset.scope);});
 $('native').onclick=()=>vscode.postMessage({type:'native',options:options(),newTab:$('newTab').checked});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();vscode.postMessage({type:'close'});} else if(e.key==='ArrowDown' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected+1);} else if(e.key==='ArrowUp' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected-1);} else if(e.key==='Enter' && selected>=0 && (document.activeElement===query || document.activeElement===results)){e.preventDefault();vscode.postMessage({type:'open',id:selected});}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(!$('replacementReview').hidden)cancelReplacement();else vscode.postMessage({type:'close'});} else if(e.key==='ArrowDown' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected+1);} else if(e.key==='ArrowUp' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected-1);} else if(e.key==='Enter' && selected>=0 && (document.activeElement===query || document.activeElement===results)){e.preventDefault();vscode.postMessage({type:'open',id:selected});}});
 window.addEventListener('message',event=>{const m=event.data;
- if(m.type==='init'){selectedDirectory=m.directory||'';$('directoryPath').textContent=selectedDirectory;$('directory').title=selectedDirectory||'Choose search directory';workspaceFolders=m.folders;selectedRoot=workspaceFolders[0]?.uri||'';$('rootLabel').textContent=workspaceFolders[0]?.name||'No workspace folder';$('rootButton').disabled=!workspaceFolders.length; query.value=m.query||'';query.focus();if(query.value)schedule();}
+ if(m.type==='init'){setReplacementMode(m.replace);selectedDirectory=m.directory||'';$('directoryPath').textContent=selectedDirectory;$('directory').title=selectedDirectory||'Choose search directory';workspaceFolders=m.folders;selectedRoot=workspaceFolders[0]?.uri||'';$('rootLabel').textContent=workspaceFolders[0]?.name||'No workspace folder';$('rootButton').disabled=!workspaceFolders.length; query.value=m.query||'';query.focus();if(query.value)schedule();}
+ if(m.type==='replacementPreview' && m.request===replacementRequest){currentPlan=m.plan;replaceBusy=false;showReplacementPreview(m.plan);updateReplacementButtons();}
+ if(m.type==='replacementError' && m.request===replacementRequest){replaceBusy=false;currentPlan=undefined;$('replacementReview').hidden=true;$('replaceNotice').hidden=false;$('replaceNotice').textContent=m.message;updateReplacementButtons();}
+ if(m.type==='replacementApplied'){replaceBusy=false;currentPlan=undefined;$('replacementReview').hidden=true;$('replaceNotice').hidden=false;$('replaceNotice').textContent=`Replaced ${m.count} matches in ${m.files} files.`;updateReplacementButtons();}
  if(m.type==='directorySelected'){selectedDirectory=m.path;$('directoryPath').textContent=m.path;$('directory').title=m.path;setScope('directory');}
- if(m.type==='focus'){if(m.query){query.value=m.query;schedule();}query.focus();query.select();}
- if(m.type==='results'){items=[];selected=-1;results.classList.add('empty-state');results.innerHTML=m.done?'<div class="empty">Type search query to find in files</div>':'<div class="empty">Searching…</div>';preview.hidden=true;splitter.hidden=true;$('previewHead').hidden=true;$('status').textContent=m.done?'':'Searching…';}
+ if(m.type==='focus'){setReplacementMode(m.replace);if(m.query){query.value=m.query;schedule();}query.focus();query.select();}
+ if(m.type==='results'){searchComplete=false;updateReplacementButtons();items=[];selected=-1;results.classList.add('empty-state');results.innerHTML=m.done?'<div class="empty">Type search query to find in files</div>':'<div class="empty">Searching…</div>';preview.hidden=true;splitter.hidden=true;$('previewHead').hidden=true;$('status').textContent=m.done?'':'Searching…';}
  if(m.type==='append'){if(!items.length){results.textContent='';results.classList.remove('empty-state');preview.hidden=false;splitter.hidden=false;$('previewHead').hidden=false;}for(const item of m.items){items.push(item);append(item);} vscode.postMessage({type:'highlightResults',ids:m.items.map(item=>item.id)}); $('status').textContent=`${m.count} matches in ${m.files} files`;if(selected<0 && items.length)select(0);}
- if(m.type==='done'){ $('status').textContent=`${m.truncated?'First ':''}${m.count} ${m.count===1?'match':'matches'} in ${m.files} ${m.files===1?'file':'files'}${m.truncated?' (limit reached)':''}`;if(m.error){const e=document.createElement('div');e.className='error';e.textContent=m.error;results.append(e);}else if(!m.count)results.innerHTML='<div class="empty">Nothing found</div>';}
- if(m.type==='error'){$('status').textContent='Search unavailable';results.classList.add('empty-state');results.textContent=m.message;}
+ if(m.type==='done'){searchComplete=!m.error;resultTruncated=!!m.truncated;updateReplacementButtons(); $('status').textContent=`${m.truncated?'First ':''}${m.count} ${m.count===1?'match':'matches'} in ${m.files} ${m.files===1?'file':'files'}${m.truncated?' (limit reached)':''}`;if(m.error){const e=document.createElement('div');e.className='error';e.textContent=m.error;results.append(e);}else if(!m.count)results.innerHTML='<div class="empty">Nothing found</div>';}
+ if(m.type==='error'){searchComplete=false;updateReplacementButtons();$('status').textContent='Search unavailable';results.classList.add('empty-state');results.textContent=m.message;}
  if(m.type==='previewInfo' && m.id===selected){
    previewInfo=m;
    const previewHead=$('previewHead'), parts=m.label.split(/[\\/]/), name=parts.pop(), filename=document.createElement('span'), folder=document.createElement('span');
@@ -128,4 +132,47 @@ window.addEventListener('message',event=>{const m=event.data;
  if(m.type==='refreshSyntax'){if(items.length)vscode.postMessage({type:'highlightResults',ids:items.map(item=>item.id)});if(previewInfo)requestPreviewLines();}
  if(m.type==='previewError' && m.id===selected)preview.textContent=m.message;
 });
+function updateReplacementButtons(){
+ const enabled=searchComplete&&!resultTruncated&&!replaceBusy&&items.length>0;
+ $('replaceOne').disabled=!enabled||selected<0;
+ $('replaceAll').disabled=!enabled;
+ $('applyReplacement').disabled=replaceBusy||!currentPlan;
+}
+function invalidateReplacement(){
+ replacementRequest++;currentPlan=undefined;replaceBusy=false;$('replacementReview').hidden=true;
+ vscode.postMessage({type:'discardReplacement'});
+}
+function cancelReplacement(){invalidateReplacement();updateReplacementButtons();$('replacement').focus();}
+function setReplacementMode(enabled){
+ invalidateReplacement();$('replaceBar').hidden=!enabled;$('replaceNotice').hidden=true;updateReplacementButtons();
+}
+function prepareReplacement(all){
+ if(replaceBusy)return;
+ replaceBusy=true;$('replaceNotice').hidden=true;updateReplacementButtons();
+ vscode.postMessage({type:'previewReplacement',request:++replacementRequest,all,id:selected,options:options(),replacement:$('replacement').value});
+}
+function showReplacementPreview(plan){
+ $('reviewTitle').textContent=`Replace ${plan.count} matches in ${plan.files.length} files`;
+ const container=$('reviewChanges');container.textContent='';
+ for(const file of plan.files){
+  const heading=document.createElement('h3');heading.textContent=file.label;container.append(heading);
+  for(const line of file.lines){
+   const number=document.createElement('div');number.className='review-line-number';number.textContent=`Line ${line.line}`;
+   const before=document.createElement('pre');before.className='review-before';before.textContent='− '+line.before;
+   const after=document.createElement('pre');after.className='review-after';after.textContent='+ '+line.after;
+   container.append(number,before,after);
+  }
+ }
+ $('replacementReview').hidden=false;$('applyReplacement').disabled=false;$('applyReplacement').focus();
+}
+$('replacement').addEventListener('input',()=>{invalidateReplacement();updateReplacementButtons();});
+$('replacement').addEventListener('keydown',e=>{if(e.key==='Enter'&&!$('replaceOne').disabled){e.preventDefault();prepareReplacement(false);}});
+$('replaceOne').onclick=()=>prepareReplacement(false);
+$('replaceAll').onclick=()=>prepareReplacement(true);
+$('cancelReplacement').onclick=cancelReplacement;
+$('applyReplacement').onclick=()=>{
+ if(!currentPlan||replaceBusy)return;
+ replaceBusy=true;updateReplacementButtons();
+ vscode.postMessage({type:'applyReplacement',request:replacementRequest,id:currentPlan.id});
+};
 vscode.postMessage({type:'ready'});

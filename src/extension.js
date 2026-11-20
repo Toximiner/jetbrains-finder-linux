@@ -2,20 +2,24 @@ const vscode = require('vscode');
 const { spawn } = require('child_process');
 const readline = require('readline');
 const { buildArgs, parseMatch, selectSearchRoots } = require('./search');
+const { createReplacementController } = require('./replacementController');
 const { createSyntax } = require('./syntax');
 const { getPreviewRange, createRowMap, rowPosition, segmentRange, matchRow, resultSnippet } = require('./preview');
 
 async function activate(context) {
   const { rgPath } = await import('@vscode/ripgrep');
   let panel, processes = [], generation = 0, matches = [], originalColumn, selectedDirectory;
+  let replacementMode = false, searchOptions, searchReady = false, searchTruncated = false, searchError = '';
+  const replacements = createReplacementController(vscode, () => ({ generation, matches, options:searchOptions, ready:searchReady && !!panel, truncated:searchTruncated, error:searchError }));
+  const title = () => replacementMode ? 'Replace in Files' : 'Find in Files';
   const syntax = createSyntax(vscode);
   let syntaxGeneration = 0;
   const refreshSyntax = () => { syntaxGeneration++; syntax.reset(); panel?.webview.postMessage({type:'refreshSyntax'}); };
   context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(refreshSyntax), vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('workbench.colorTheme') || event.affectsConfiguration('editor.tokenColorCustomizations')) refreshSyntax(); }), vscode.extensions.onDidChange(refreshSyntax));
-  function stop() { generation++; for (const p of processes) p.kill(); processes = []; }
+  function stop() { searchReady = false; replacements.discard(); generation++; for (const p of processes) p.kill(); processes = []; }
   async function search(options) {
-    stop(); const current = generation; matches = [];
-    if (panel) panel.title = 'Find in Files';
+    stop(); const current = generation; matches = []; searchOptions = {...options}; searchTruncated = false; searchError = '';
+    if (panel) panel.title = title();
     const folders = vscode.workspace.workspaceFolders || [];
     if (!options.query) { panel.webview.postMessage({ type: 'results', items: [], count: 0, done: true }); return; }
     const roots = selectSearchRoots(options.scope, folders, selectedDirectory, options.root);
@@ -30,7 +34,7 @@ async function activate(context) {
       const args = buildArgs(options, config);
       const child = spawn(rgPath, args, {cwd:root, windowsHide:true}); processes.push(child);
       let stderr = '', batch = [], timer;
-      const flush = () => { clearTimeout(timer); timer = undefined; if (batch.length && current === generation && panel) { panel.title = `Find in Files  ${matches.length} ${matches.length === 1 ? 'match' : 'matches'} in ${files.size} ${files.size === 1 ? 'file' : 'files'}`; panel.webview.postMessage({type:'append', items:batch, count:matches.length, files:files.size}); batch=[]; } };
+      const flush = () => { clearTimeout(timer); timer = undefined; if (batch.length && current === generation && panel) { panel.title = `${title()}  ${matches.length} ${matches.length === 1 ? 'match' : 'matches'} in ${files.size} ${files.size === 1 ? 'file' : 'files'}`; panel.webview.postMessage({type:'append', items:batch, count:matches.length, files:files.size}); batch=[]; } };
       readline.createInterface({input:child.stdout}).on('line', line => {
         if (current !== generation || truncated) return;
         try {
@@ -46,7 +50,7 @@ async function activate(context) {
       child.on('error', e => { errors.push(e.message); });
       child.on('close', code => { flush(); if (code > 1 && stderr) errors.push(stderr.trim()); if (--remaining === 0) finish(); });
     }
-    function finish() { if (current !== generation || !panel) return; processes = []; panel.title = `Find in Files  ${truncated ? 'First ' : ''}${matches.length} ${matches.length === 1 ? 'match' : 'matches'} in ${files.size} ${files.size === 1 ? 'file' : 'files'}${truncated ? ' (limit reached)' : ''}`; panel.webview.postMessage({type:'done', count:matches.length, files:files.size, truncated, error:errors.join('\n')}); }
+    function finish() { if (current !== generation || !panel) return; processes = []; searchTruncated = truncated; searchError = errors.join('\n'); searchReady = true; panel.title = `${title()}  ${truncated ? 'First ' : ''}${matches.length} ${matches.length === 1 ? 'match' : 'matches'} in ${files.size} ${files.size === 1 ? 'file' : 'files'}${truncated ? ' (limit reached)' : ''}`; panel.webview.postMessage({type:'done', count:matches.length, files:files.size, truncated, error:errors.join('\n')}); }
   }
   async function highlightResults(ids) {
     const active = syntaxGeneration, current = generation;
@@ -114,13 +118,14 @@ async function activate(context) {
       await vscode.commands.executeCommand(target);
     }));
   }
-  context.subscriptions.push(vscode.commands.registerCommand('jetbrainsFinderLinux.open', (initialQuery) => {
+  function open(initialQuery, replace = false) {
+    replacementMode = replace;
     const selected = typeof initialQuery === 'string' ? initialQuery : (vscode.window.activeTextEditor?.document.getText(vscode.window.activeTextEditor.selection) || '');
-    if (panel) { panel.reveal(); panel.webview.postMessage({type:'focus', query:selected.includes('\n') ? '' : selected}); return; }
+    if (panel) { panel.title = title(); panel.reveal(); panel.webview.postMessage({type:'focus', replace:replacementMode, query:selected.includes('\n') ? '' : selected}); return; }
     const activeDocument = vscode.window.activeTextEditor?.document;
     if (!selectedDirectory) selectedDirectory = (activeDocument && vscode.workspace.getWorkspaceFolder(activeDocument.uri)?.uri) || vscode.workspace.workspaceFolders?.[0]?.uri;
     originalColumn = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One;
-    panel = vscode.window.createWebviewPanel('jetbrainsFinderLinux', 'Find in Files', vscode.ViewColumn.Active, {enableScripts:true, retainContextWhenHidden:true, localResourceRoots:[vscode.Uri.joinPath(context.extensionUri,'media'), vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist')]});
+    panel = vscode.window.createWebviewPanel('jetbrainsFinderLinux', title(), vscode.ViewColumn.Active, {enableScripts:true, retainContextWhenHidden:true, localResourceRoots:[vscode.Uri.joinPath(context.extensionUri,'media'), vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist')]});
     const webview = panel.webview, script = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'media','main.js')), style = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'media','style.css'));
     const icons = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist','codicon.css'));
     const nonce = require('crypto').randomBytes(16).toString('base64');
@@ -135,7 +140,7 @@ async function activate(context) {
     });
     panel.onDidDispose(() => {stop(); panel = undefined;});
     webview.onDidReceiveMessage(async message => {
-      if (message.type === 'ready') webview.postMessage({type:'init', folders:(vscode.workspace.workspaceFolders || []).map(f=>({name:f.name, uri:f.uri.toString()})), query:selected.includes('\n')?'':selected, directory:selectedDirectory?.fsPath || ''});
+      if (message.type === 'ready') webview.postMessage({type:'init', replace:replacementMode, folders:(vscode.workspace.workspaceFolders || []).map(f=>({name:f.name, uri:f.uri.toString()})), query:selected.includes('\n')?'':selected, directory:selectedDirectory?.fsPath || ''});
       else if (message.type === 'chooseDirectory') {
         const owner = panel;
         const picked = await vscode.window.showOpenDialog({canSelectFiles:false, canSelectFolders:true, canSelectMany:false, openLabel:'Select Directory', defaultUri:selectedDirectory || vscode.workspace.workspaceFolders?.[0]?.uri});
@@ -145,6 +150,17 @@ async function activate(context) {
         webview.postMessage({type:'directorySelected', path:selectedDirectory.fsPath});
       }
       else if (message.type === 'search') search(message.options);
+      else if (message.type === 'discardReplacement') replacements.discard();
+      else if (message.type === 'previewReplacement') {
+        try { webview.postMessage({type:'replacementPreview', request:message.request, plan:await replacements.prepare(message)}); }
+        catch (error) { webview.postMessage({type:'replacementError', request:message.request, message:error.message}); }
+      }
+      else if (message.type === 'applyReplacement') {
+        try {
+          const result = await replacements.apply(message.id);
+          if (panel) { webview.postMessage({type:'replacementApplied', ...result}); search(searchOptions); }
+        } catch (error) { webview.postMessage({type:'replacementError', request:message.request, message:error.message}); }
+      }
       else if (message.type === 'preview') preview(message.id, message.columns);
       else if (message.type === 'previewLines' && Number.isInteger(message.id)) previewLines(message.id, message.start, message.end, message.serial);
       else if (message.type === 'highlightResults' && Array.isArray(message.ids)) highlightResults(message.ids.filter(Number.isInteger));
@@ -161,6 +177,10 @@ async function activate(context) {
         }
       }
     });
-  }));
+  }
+  context.subscriptions.push(
+    vscode.commands.registerCommand('jetbrainsFinderLinux.open', initialQuery => open(initialQuery, false)),
+    vscode.commands.registerCommand('jetbrainsFinderLinux.replace', initialQuery => open(initialQuery, true))
+  );
 }
 module.exports = { activate };

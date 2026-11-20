@@ -16,3 +16,20 @@ header{min-height:32px;padding:2px 8px}#query{padding:2px 6px}.toggle{padding:3p
 .toggle{border-radius:4px}
 
 .file{font:inherit;font-family:var(--vscode-editor-font-family,monospace);flex:none}
+
+/* Replace mode shares the search results and context preview. */
+.replace-bar{display:flex;gap:8px;align-items:center;padding:0 14px 8px;flex-shrink:0}
+.replace-bar input{flex:1;min-width:40px;padding:5px 8px}
+.replace-bar button,.review-actions button{border:1px solid var(--vscode-button-secondaryBorder,transparent);background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);border-radius:4px;padding:5px 10px}
+.replace-bar button:disabled,.review-actions button:disabled{opacity:.5;cursor:default}
+.replace-notice{padding:4px 14px 8px;flex-shrink:0;white-space:pre-wrap}
+.replacement-review{position:fixed;inset:16px;z-index:20;display:flex;flex-direction:column;background:var(--vscode-editor-background);border:1px solid var(--vscode-focusBorder);box-shadow:0 4px 30px #0008;padding:16px;min-height:0}
+.replacement-review h2{font-size:16px;margin:0 0 12px}
+.review-changes{flex:1;min-height:0;overflow:auto}
+.review-changes h3{font-size:13px;margin:16px 0 8px;overflow-wrap:anywhere}
+.review-line-number{color:var(--vscode-descriptionForeground);font-size:12px}
+.review-changes pre{margin:2px 0;padding:4px 8px;white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--vscode-editor-font-family,monospace)}
+.review-before{background:var(--vscode-diffEditor-removedTextBackground,#ff000020)}
+.review-after{background:var(--vscode-diffEditor-insertedTextBackground,#00ff0020)}
+.review-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding-top:16px;flex-wrap:wrap}
+.review-actions span{margin-right:auto;color:var(--vscode-descriptionForeground)}

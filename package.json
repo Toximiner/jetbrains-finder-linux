@@ -1,8 +1,8 @@
 {
   "name": "jetbrains-finder-linux",
   "displayName": "JetBrains Finder for Linux",
-  "description": "Unofficial Linux x64 build of JetBrains Finder: live search results and a code preview.",
-  "version": "0.3.66",
+  "description": "JetBrains-style find and replace for Linux x64, with live results and code previews.",
+  "version": "0.4.0",
   "publisher": "Toximiner",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://github.com/Toximiner/jetbrains-finder-linux#readme",
@@ -12,7 +12,8 @@
   "keywords": [
     "find in files",
     "search",
-    "jetbrains"
+    "jetbrains",
+    "replace in files"
   ],
   "engines": {
     "vscode": "^1.85.0"
@@ -22,13 +23,19 @@
   ],
   "main": "./src/extension.js",
   "activationEvents": [
-    "onCommand:jetbrainsFinderLinux.open"
+    "onCommand:jetbrainsFinderLinux.open",
+    "onCommand:jetbrainsFinderLinux.replace"
   ],
   "contributes": {
     "commands": [
       {
         "command": "jetbrainsFinderLinux.open",
         "title": "Find in Files",
+        "category": "JetBrains Finder Linux"
+      },
+      {
+        "command": "jetbrainsFinderLinux.replace",
+        "title": "Replace in Files",
         "category": "JetBrains Finder Linux"
       }
     ],
@@ -56,12 +63,19 @@
         "key": "ctrl+shift+p",
         "mac": "cmd+shift+p",
         "when": "activeWebviewPanelId == jetbrainsFinderLinux"
+      },
+      {
+        "command": "jetbrainsFinderLinux.replace",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "!inDebugRepl"
       }
     ]
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "vsce package --target linux-x64"
+    "package": "vsce package --target linux-x64",
+    "check": "node --check src/extension.js && node --check media/main.js && node --check src/replace.js && node --check src/replacementController.js"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.46-24",
@@ -72,7 +86,8 @@
     "vscode-textmate": "^9.3.2"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.6.0"
+    "@vscode/vsce": "^3.6.0",
+    "jsdom": "26.1.0"
   },
   "icon": "assets/icon.png",
   "repository": {

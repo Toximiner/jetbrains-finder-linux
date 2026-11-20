@@ -2,7 +2,7 @@
 
 This is an **unofficial Linux x64 fork** of [JetBrains Finder for VS Code by Zeeshan Ahmad](https://github.com/ziishaned/jetbrains-finder-for-vscode), distributed by **Toximiner** under the original MIT license. It is not an official JetBrains product. The upstream version used for this fork is 0.3.66 (commit `96dc659`).
 
-The original search and preview implementation is preserved. This fork adds a Linux x64 package, independent command IDs, and automated builds and releases. Linux ARM64, Windows and macOS packages are not provided by this fork.
+The original search and preview implementation is preserved. This fork adds a Linux x64 package, find-and-replace with before/after review, independent command IDs, and automated builds and releases. Linux ARM64, Windows and macOS packages are not provided by this fork.
 
 ## Install on Linux x64
 
@@ -14,7 +14,7 @@ code --install-extension Toximiner.jetbrains-finder-linux
 
 Alternatively download the Linux VSIX from [GitHub releases](https://github.com/Toximiner/jetbrains-finder-linux/releases) and use **Extensions: Install from VSIX…**. A SHA256 checksum is included with each release.
 
-`Ctrl+Shift+F` opens the live search dialog; this extension provides search, not replacement. Remove an earlier local build under `ziishaned.jetbrains-find-in-files` if both copies compete for this shortcut.
+`Ctrl+Shift+F` opens live search; `Ctrl+Shift+R` opens the same dialog with replacement controls. Remove an earlier local build under `ziishaned.jetbrains-find-in-files` if both copies compete for this shortcut.
 
 Search a workspace in a JetBrains-inspired view with live results and a preview of the selected match. On recent versions of VS Code, the view can open as a floating modal editor over your code.
 
@@ -44,6 +44,14 @@ Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+
 Run `npm install`, then `npm run package` and install the generated `.vsix` using **Extensions: Install from VSIX...** in VS Code. Alternatively open the project in VS Code and press F5 to run an Extension Development Host. Run `npm test` for the search tests.
 
 The default shortcut replaces VS Code's built-in Find in Files shortcut while this extension is enabled. You can change it in Keyboard Shortcuts; the built-in search remains available from the Search view and Command Palette.
+
+## Replace in Files
+
+Press **Ctrl+Shift+R** (or run **JetBrains Finder Linux: Replace in Files**). Enter the query and replacement, then choose **Replace Selected…** or **Replace All…**. Both show a before/after review; **Apply and Save** applies the edits with VS Code's WorkspaceEdit API and saves only the affected files. **Cancel** changes nothing. Empty replacement deletes matches; literal mode preserves `$` characters literally.
+
+Regular-expression replacements support JavaScript substitutions such as `$1`, `$<name>`, `$$` and `$&`. The query must be supported by both ripgrep and JavaScript and agree on the match positions.
+
+Replacement requires a completed, successful search without truncation at the 1,000-match limit. Save unsaved files before searching. Changed documents, files changed on disk after review, and expired previews are rejected before applying edits. Applied text changes support VS Code Undo; save again to persist an Undo.
 
 ## Current limitations
 
