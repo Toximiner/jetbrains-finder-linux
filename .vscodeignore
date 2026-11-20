@@ -10,3 +10,5 @@ node_modules/@vscode/codicons/dist/*.json
 
 
 assets/concepts/**
+
+.github/**

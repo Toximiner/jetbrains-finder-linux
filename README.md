@@ -1,4 +1,20 @@
-# JetBrains Finder for VS Code
+# JetBrains Finder for Linux
+
+This is an **unofficial Linux x64 fork** of [JetBrains Finder for VS Code by Zeeshan Ahmad](https://github.com/ziishaned/jetbrains-finder-for-vscode), distributed by **Toximiner** under the original MIT license. It is not an official JetBrains product. The upstream version used for this fork is 0.3.66 (commit `96dc659`).
+
+The original search and preview implementation is preserved. This fork adds a Linux x64 package, independent command IDs, and automated builds and releases. Linux ARM64, Windows and macOS packages are not provided by this fork.
+
+## Install on Linux x64
+
+Install **JetBrains Finder for Linux** by **Toximiner** from [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Toximiner.jetbrains-finder-linux), or run:
+
+```sh
+code --install-extension Toximiner.jetbrains-finder-linux
+```
+
+Alternatively download the Linux VSIX from [GitHub releases](https://github.com/Toximiner/jetbrains-finder-linux/releases) and use **Extensions: Install from VSIX…**. A SHA256 checksum is included with each release.
+
+`Ctrl+Shift+F` opens the live search dialog; this extension provides search, not replacement. Remove an earlier local build under `ziishaned.jetbrains-find-in-files` if both copies compete for this shortcut.
 
 Search a workspace in a JetBrains-inspired view with live results and a preview of the selected match. On recent versions of VS Code, the view can open as a floating modal editor over your code.
 
@@ -16,7 +32,7 @@ This is a VS Code-wide preference: **other editors may also open as modals**. Th
 
 ## Use
 
-Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. You can also run **JetBrains Finder: Find in Files** from the Command Palette. A single-line editor selection is used as the initial query.
+Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. You can also run **JetBrains Finder Linux: Find in Files** from the Command Palette. A single-line editor selection is used as the initial query.
 
 - Toggle case sensitivity, whole-word matching, and regular expressions beside the search field.
 - Search the whole workspace, a workspace folder, or a directory relative to each workspace folder.
@@ -32,3 +48,18 @@ The default shortcut replaces VS Code's built-in Find in Files shortcut while th
 ## Current limitations
 
 The extension uses ripgrep to search files on disk, respects ignore files and boolean `search.exclude` entries, and limits results to the first 1,000 matches. Unsaved edits are shown in the preview but are not included in search results until saved. Search supports file-based workspaces on the local or remote extension host; virtual workspaces are not supported. Directory scopes are approximations of JetBrains scopes; JetBrains modules and named scopes are not available. Open in Search View transfers the query and options, but not the selected workspace folder or directory.
+
+
+## Releases and upstream
+
+GitHub Actions runs the search, preview and syntax tests, verifies the bundled ripgrep executable, and packages for `linux-x64`. Matching version tags create GitHub releases and publish through Marketplace Trusted Publishing. No publisher token is stored in the repository.
+
+To build locally:
+
+```sh
+npm ci
+npm test
+npm run package
+```
+
+Upstream: [ziishaned/jetbrains-finder-for-vscode](https://github.com/ziishaned/jetbrains-finder-for-vscode). Original copyright and license are retained in [LICENSE](LICENSE).

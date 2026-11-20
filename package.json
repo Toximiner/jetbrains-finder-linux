@@ -1,13 +1,13 @@
 {
-  "name": "jetbrains-find-in-files",
-  "displayName": "JetBrains Finder for VS Code",
-  "description": "Search your workspace with a live results list and code preview.",
+  "name": "jetbrains-finder-linux",
+  "displayName": "JetBrains Finder for Linux",
+  "description": "Unofficial Linux x64 build of JetBrains Finder: live search results and a code preview.",
   "version": "0.3.66",
-  "publisher": "ziishaned",
+  "publisher": "Toximiner",
   "license": "SEE LICENSE IN LICENSE",
-  "homepage": "https://github.com/ziishaned/jetbrains-finder-for-vscode#readme",
+  "homepage": "https://github.com/Toximiner/jetbrains-finder-linux#readme",
   "bugs": {
-    "url": "https://github.com/ziishaned/jetbrains-finder-for-vscode/issues"
+    "url": "https://github.com/Toximiner/jetbrains-finder-linux/issues"
   },
   "keywords": [
     "find in files",
@@ -22,46 +22,46 @@
   ],
   "main": "./src/extension.js",
   "activationEvents": [
-    "onCommand:jetbrainsFinder.open"
+    "onCommand:jetbrainsFinderLinux.open"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "jetbrainsFinder.open",
+        "command": "jetbrainsFinderLinux.open",
         "title": "Find in Files",
-        "category": "JetBrains Finder"
+        "category": "JetBrains Finder Linux"
       }
     ],
     "keybindings": [
       {
-        "command": "jetbrainsFinder.open",
+        "command": "jetbrainsFinderLinux.open",
         "key": "ctrl+shift+f",
         "mac": "cmd+shift+f",
         "when": "!inDebugRepl"
       },
       {
-        "command": "jetbrainsFinder.quickOpen",
+        "command": "jetbrainsFinderLinux.quickOpen",
         "key": "ctrl+p",
         "mac": "cmd+p",
-        "when": "activeWebviewPanelId == jetbrainsFinder"
+        "when": "activeWebviewPanelId == jetbrainsFinderLinux"
       },
       {
-        "command": "jetbrainsFinder.quickOpen",
+        "command": "jetbrainsFinderLinux.quickOpen",
         "key": "ctrl+shift+o",
         "mac": "cmd+shift+o",
-        "when": "activeWebviewPanelId == jetbrainsFinder"
+        "when": "activeWebviewPanelId == jetbrainsFinderLinux"
       },
       {
-        "command": "jetbrainsFinder.commands",
+        "command": "jetbrainsFinderLinux.commands",
         "key": "ctrl+shift+p",
         "mac": "cmd+shift+p",
-        "when": "activeWebviewPanelId == jetbrainsFinder"
+        "when": "activeWebviewPanelId == jetbrainsFinderLinux"
       }
     ]
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "vsce package --allow-missing-repository"
+    "package": "vsce package --target linux-x64"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.46-24",
@@ -77,6 +77,6 @@
   "icon": "assets/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ziishaned/jetbrains-finder-for-vscode.git"
+    "url": "https://github.com/Toximiner/jetbrains-finder-linux.git"
   }
 }

@@ -1,0 +1,37 @@
+name: Publish to Visual Studio Marketplace
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Validate publisher and version
+        run: |
+          node <<'JS'
+          const pkg = require('./package.json');
+          if (pkg.publisher !== 'Toximiner') throw new Error('Unexpected publisher');
+          if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v${pkg.version}`) throw new Error('Tag must match version');
+          JS
+      - run: npm ci
+      - run: npm test
+      - run: npm run package
+      - name: Publish through Trusted Publishing
+        run: npx --yes @vscode/vsce@4.1.1 publish --oidc --packagePath *.vsix

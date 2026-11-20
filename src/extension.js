@@ -108,19 +108,19 @@ async function activate(context) {
     } catch (error) { if (panel && sequence === previewSequence && request === previewRequest) panel.webview.postMessage({type:'previewError',id,message:error.message}); }
   }
   for (const [name, target] of [['quickOpen', 'workbench.action.quickOpen'], ['commands', 'workbench.action.showCommands']]) {
-    context.subscriptions.push(vscode.commands.registerCommand(`jetbrainsFinder.${name}`, async () => {
+    context.subscriptions.push(vscode.commands.registerCommand(`jetbrainsFinderLinux.${name}`, async () => {
       panel?.dispose();
       await new Promise(resolve => setTimeout(resolve, 150));
       await vscode.commands.executeCommand(target);
     }));
   }
-  context.subscriptions.push(vscode.commands.registerCommand('jetbrainsFinder.open', (initialQuery) => {
+  context.subscriptions.push(vscode.commands.registerCommand('jetbrainsFinderLinux.open', (initialQuery) => {
     const selected = typeof initialQuery === 'string' ? initialQuery : (vscode.window.activeTextEditor?.document.getText(vscode.window.activeTextEditor.selection) || '');
     if (panel) { panel.reveal(); panel.webview.postMessage({type:'focus', query:selected.includes('\n') ? '' : selected}); return; }
     const activeDocument = vscode.window.activeTextEditor?.document;
     if (!selectedDirectory) selectedDirectory = (activeDocument && vscode.workspace.getWorkspaceFolder(activeDocument.uri)?.uri) || vscode.workspace.workspaceFolders?.[0]?.uri;
     originalColumn = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One;
-    panel = vscode.window.createWebviewPanel('jetbrainsFinder', 'Find in Files', vscode.ViewColumn.Active, {enableScripts:true, retainContextWhenHidden:true, localResourceRoots:[vscode.Uri.joinPath(context.extensionUri,'media'), vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist')]});
+    panel = vscode.window.createWebviewPanel('jetbrainsFinderLinux', 'Find in Files', vscode.ViewColumn.Active, {enableScripts:true, retainContextWhenHidden:true, localResourceRoots:[vscode.Uri.joinPath(context.extensionUri,'media'), vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist')]});
     const webview = panel.webview, script = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'media','main.js')), style = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'media','style.css'));
     const icons = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist','codicon.css'));
     const nonce = require('crypto').randomBytes(16).toString('base64');
@@ -128,7 +128,7 @@ async function activate(context) {
     panel.onDidChangeViewState(async event => {
       const owner = event.webviewPanel;
       if (owner.active || panel !== owner || vscode.workspace.getConfiguration('workbench.editor').get('useModal') !== 'all') return;
-      const group = vscode.window.tabGroups.all.find(group => group.tabs.some(tab => tab.input instanceof vscode.TabInputWebview && tab.input.viewType === 'jetbrainsFinder'));
+      const group = vscode.window.tabGroups.all.find(group => group.tabs.some(tab => tab.input instanceof vscode.TabInputWebview && tab.input.viewType === 'jetbrainsFinderLinux'));
       if (!group || group.tabs.length !== 2 || !(group.activeTab?.input instanceof vscode.TabInputText)) return;
       owner.dispose();
       await vscode.commands.executeCommand('workbench.action.moveModalEditorToMain');
