@@ -3,20 +3,24 @@ const { spawn } = require('child_process');
 const readline = require('readline');
 const { buildArgs, parseMatch, selectSearchRoots } = require('./search');
 const { createReplacementController } = require('./replacementController');
+const { createPreviewEditor } = require('./previewEditor');
+const { tokenizeEditor } = require('./editorSyntax');
 const { createSyntax } = require('./syntax');
 const { getPreviewRange, createRowMap, rowPosition, segmentRange, matchRow, resultSnippet } = require('./preview');
 
 async function activate(context) {
   const { rgPath } = await import('@vscode/ripgrep');
   let panel, processes = [], generation = 0, matches = [], originalColumn, selectedDirectory;
+  let latestDraft, savingTask, closingTask = Promise.resolve();
   let replacementMode = false, searchOptions, searchReady = false, searchTruncated = false, searchError = '';
   const replacements = createReplacementController(vscode, () => ({ generation, matches, options:searchOptions, ready:searchReady && !!panel, truncated:searchTruncated, error:searchError }));
+  const previewEditor = createPreviewEditor(vscode, () => ({generation, matches}));
   const title = () => replacementMode ? 'Replace in Files' : 'Find in Files';
   const syntax = createSyntax(vscode);
-  let syntaxGeneration = 0;
+  let syntaxGeneration = 0, editorSyntaxSequence = 0;
   const refreshSyntax = () => { syntaxGeneration++; syntax.reset(); panel?.webview.postMessage({type:'refreshSyntax'}); };
   context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(refreshSyntax), vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('workbench.colorTheme') || event.affectsConfiguration('editor.tokenColorCustomizations')) refreshSyntax(); }), vscode.extensions.onDidChange(refreshSyntax));
-  function stop() { searchReady = false; replacements.discard(); generation++; for (const p of processes) p.kill(); processes = []; }
+  function stop() { latestDraft = undefined; previewEditor.discard(); searchReady = false; replacements.discard(); generation++; for (const p of processes) p.kill(); processes = []; }
   async function search(options) {
     stop(); const current = generation; matches = []; searchOptions = {...options}; searchTruncated = false; searchError = '';
     if (panel) panel.title = title();
@@ -72,9 +76,11 @@ async function activate(context) {
     try {
       const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(item.file));
       if (matches[id] !== item || !panel || sequence !== previewSequence) return;
+      const data = await previewEditor.open(id);
+      if (matches[id] !== item || !panel || sequence !== previewSequence) return;
       const map = createRowMap(doc, columns);
       previewModel={id, doc, map, version:doc.version};
-      panel.webview.postMessage({type:'previewInfo', id, label:item.label, lineCount:map.count, line:matchRow(map,doc,item.line,item.start), start:item.start, end:item.end, columns:map.width});
+      panel.webview.postMessage({type:'previewInfo', data, id, label:item.label, lineCount:map.count, line:matchRow(map,doc,item.line,item.start), start:item.start, end:item.end, columns:map.width});
     } catch (error) { if (panel && sequence === previewSequence) panel.webview.postMessage({type:'previewError', id, message:error.message}); }
   }
   async function previewLines(id, requestedStart, requestedEnd, serial) {
@@ -118,18 +124,24 @@ async function activate(context) {
       await vscode.commands.executeCommand(target);
     }));
   }
-  function open(initialQuery, replace = false) {
+  async function open(initialQuery, replace = false, newWindow = false) {
+    await closingTask;
     replacementMode = replace;
     const selected = typeof initialQuery === 'string' ? initialQuery : (vscode.window.activeTextEditor?.document.getText(vscode.window.activeTextEditor.selection) || '');
-    if (panel) { panel.title = title(); panel.reveal(); panel.webview.postMessage({type:'focus', replace:replacementMode, query:selected.includes('\n') ? '' : selected}); return; }
+    if (panel) {
+      panel.title = title(); panel.reveal(); panel.webview.postMessage({type:'focus', replace:replacementMode, query:selected.includes('\n') ? '' : selected});
+      if (newWindow) await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
+      return;
+    }
     const activeDocument = vscode.window.activeTextEditor?.document;
     if (!selectedDirectory) selectedDirectory = (activeDocument && vscode.workspace.getWorkspaceFolder(activeDocument.uri)?.uri) || vscode.workspace.workspaceFolders?.[0]?.uri;
     originalColumn = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One;
     panel = vscode.window.createWebviewPanel('jetbrainsFinderLinux', title(), vscode.ViewColumn.Active, {enableScripts:true, retainContextWhenHidden:true, localResourceRoots:[vscode.Uri.joinPath(context.extensionUri,'media'), vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist')]});
     const webview = panel.webview, script = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'media','main.js')), style = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'media','style.css'));
     const icons = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'node_modules','@vscode','codicons','dist','codicon.css'));
+    const editorScript = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri,'media','editor.bundle.js'));
     const nonce = require('crypto').randomBytes(16).toString('base64');
-    webview.html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${icons}"><link rel="stylesheet" href="${style}"></head><body><div id="app"></div><script nonce="${nonce}" src="${script}"></script></body></html>`;
+    webview.html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${icons}"><link rel="stylesheet" href="${style}"></head><body><div id="app"></div><script nonce="${nonce}" src="${editorScript}"></script><script nonce="${nonce}" src="${script}"></script></body></html>`;
     panel.onDidChangeViewState(async event => {
       const owner = event.webviewPanel;
       if (owner.active || panel !== owner || vscode.workspace.getConfiguration('workbench.editor').get('useModal') !== 'all') return;
@@ -138,7 +150,22 @@ async function activate(context) {
       owner.dispose();
       await vscode.commands.executeCommand('workbench.action.moveModalEditorToMain');
     });
-    panel.onDidDispose(() => {stop(); panel = undefined;});
+    panel.onDidDispose(() => {
+      searchReady = false; replacements.discard(); for (const p of processes) p.kill(); processes = [];
+      panel = undefined;
+      closingTask = (async () => {
+        try {
+          if (savingTask) await savingTask;
+          if (latestDraft) await previewEditor.save(latestDraft.token, latestDraft.text);
+        } catch (error) {
+          vscode.window.showErrorMessage(`Automatic saving failed: ${error.message}`);
+          if (latestDraft) {
+            const recovered = await vscode.workspace.openTextDocument({content:latestDraft.text});
+            await vscode.window.showTextDocument(recovered, {preview:false});
+          }
+        } finally { latestDraft = undefined; previewEditor.discard(); generation++; }
+      })();
+    });
     webview.onDidReceiveMessage(async message => {
       if (message.type === 'ready') webview.postMessage({type:'init', replace:replacementMode, folders:(vscode.workspace.workspaceFolders || []).map(f=>({name:f.name, uri:f.uri.toString()})), query:selected.includes('\n')?'':selected, directory:selectedDirectory?.fsPath || ''});
       else if (message.type === 'chooseDirectory') {
@@ -148,6 +175,27 @@ async function activate(context) {
         if (picked[0].scheme !== 'file') { vscode.window.showWarningMessage('Choose a file-based directory.'); return; }
         selectedDirectory = picked[0];
         webview.postMessage({type:'directorySelected', path:selectedDirectory.fsPath});
+      }
+      else if (message.type === 'editorSyntax' && typeof message.text === 'string' && message.text.length <= 2*1024*1024) {
+        const model = previewModel, owner = panel, sequence = ++editorSyntaxSequence, theme = syntaxGeneration;
+        if (!model || model.id !== message.id) return;
+        const cancelled = () => sequence !== editorSyntaxSequence || theme !== syntaxGeneration || panel !== owner || previewModel !== model;
+        try {
+          const spans = await tokenizeEditor(syntax, model.doc.uri.fsPath, model.doc.languageId, message.text, cancelled);
+          if (!cancelled()) webview.postMessage({type:'editorSyntax', request:message.request, spans});
+        } catch { if (!cancelled()) webview.postMessage({type:'editorSyntax', request:message.request, spans:[]}); }
+      }
+      else if (message.type === 'draftPreview' && typeof message.text === 'string') latestDraft = {token:message.token, text:message.text};
+      else if (message.type === 'savePreview') {
+        try {
+          savingTask = previewEditor.save(message.token, message.text);
+          const result = await savingTask;
+          if (latestDraft?.token === message.token && latestDraft.text === message.text) latestDraft = undefined;
+          webview.postMessage({type:'editSaved', request:message.request, ...result});
+          replacements.discard();
+          searchReady = false; // Disk search results must be refreshed before bulk replacement.
+        } catch (error) { webview.postMessage({type:'editError', request:message.request, message:error.message}); }
+        finally { savingTask = undefined; }
       }
       else if (message.type === 'search') search(message.options);
       else if (message.type === 'discardReplacement') replacements.discard();
@@ -161,7 +209,7 @@ async function activate(context) {
           if (panel) { webview.postMessage({type:'replacementApplied', ...result}); search(searchOptions); }
         } catch (error) { webview.postMessage({type:'replacementError', request:message.request, message:error.message}); }
       }
-      else if (message.type === 'preview') preview(message.id, message.columns);
+      else if (message.type === 'preview') { latestDraft = undefined; preview(message.id, message.columns); }
       else if (message.type === 'previewLines' && Number.isInteger(message.id)) previewLines(message.id, message.start, message.end, message.serial);
       else if (message.type === 'highlightResults' && Array.isArray(message.ids)) highlightResults(message.ids.filter(Number.isInteger));
       else if (message.type === 'open') { const item=matches[message.id]; if (!item) return; const column=originalColumn; panel.dispose(); const doc=await vscode.workspace.openTextDocument(vscode.Uri.file(item.file)); const editor=await vscode.window.showTextDocument(doc,{viewColumn:column, preview:false}); const range=new vscode.Range(item.line,item.start,item.line,item.end); editor.selection=new vscode.Selection(range.start,range.end); editor.revealRange(range,vscode.TextEditorRevealType.InCenter); }
@@ -177,9 +225,17 @@ async function activate(context) {
         }
       }
     });
+    if (newWindow) {
+      try {
+        await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
+      } catch (error) {
+        vscode.window.showWarningMessage(`Finder opened in this window. VS Code could not move it to a separate window: ${error.message}`);
+      }
+    }
   }
   context.subscriptions.push(
     vscode.commands.registerCommand('jetbrainsFinderLinux.open', initialQuery => open(initialQuery, false)),
+    vscode.commands.registerCommand('jetbrainsFinderLinux.openInNewWindow', initialQuery => open(initialQuery, false, true)),
     vscode.commands.registerCommand('jetbrainsFinderLinux.replace', initialQuery => open(initialQuery, true))
   );
 }

@@ -8,11 +8,14 @@ let previewRatio=Number.isFinite(savedState.previewRatio)?Math.max(.08,Math.min(
 preview.style.height=`${previewRatio*100}%`;
 let items=[], selected=-1, scope='project', timer, workspaceFolders=[], selectedRoot='';
 let searchComplete=false, resultTruncated=false, replaceBusy=false, currentPlan, replacementRequest=0;
+let inlineEditor, editData, editBusy=false, editRequest=0, draftDirty=false;
+let editorSyntaxTimer, editorSyntaxRequest=0;
+let editTimer, savePromise, savedText='', submittedText='', editError='', applyingSavedText=false, navigationRequest=0;
 let previewInfo, previewSerial=0, previewFrame, selectedDirectory='';
 
 const options=()=>({query:query.value,caseSensitive:$('case').getAttribute('aria-pressed')==='true',wholeWord:$('word').getAttribute('aria-pressed')==='true',regex:$('regex').getAttribute('aria-pressed')==='true',scope,root:selectedRoot,directory:selectedDirectory});
-function schedule(){ invalidateReplacement(); searchComplete=false; resultTruncated=false; updateReplacementButtons(); $('clearQuery').hidden=!query.value; previewInfo=undefined; previewSerial++; clearTimeout(timer); items=[]; selected=-1; results.classList.add('empty-state'); results.innerHTML=query.value?'<div class="empty">Searching…</div>':'<div class="empty">Type search query to find in files</div>'; preview.hidden=true; splitter.hidden=true; $('previewHead').hidden=true; $('native').disabled=!query.value; $('status').textContent=''; preview.innerHTML='<div class="empty">Select a result to preview its context.</div>'; $('previewHead').textContent='Preview'; timer=setTimeout(()=>vscode.postMessage({type:'search',options:options()}),180); }
-function select(index){if (!items.length) return; previewInfo=undefined; previewSerial++; selected=Math.max(0,Math.min(index,items.length-1)); updateReplacementButtons(); for(const el of results.querySelectorAll('.result')) el.classList.toggle('selected',Number(el.dataset.id)===selected); results.querySelector(`[data-id="${selected}"]`)?.scrollIntoView({block:'nearest'}); vscode.postMessage({type:'preview',id:selected,columns:previewColumns()});}
+async function schedule(){ const navigation=++navigationRequest; if((draftDirty||savePromise)&&!await flushInlineEdit())return;if(navigation!==navigationRequest)return; finishInlineEdit(); invalidateReplacement(); searchComplete=false; resultTruncated=false; updateReplacementButtons(); $('clearQuery').hidden=!query.value; previewInfo=undefined; previewSerial++; clearTimeout(timer); items=[]; selected=-1; results.classList.add('empty-state'); results.innerHTML=query.value?'<div class="empty">Searching…</div>':'<div class="empty">Type search query to find in files</div>'; preview.hidden=true; splitter.hidden=true; $('previewHead').hidden=true; $('native').disabled=!query.value; $('status').textContent=''; preview.innerHTML='<div class="empty">Select a result to preview its context.</div>'; $('previewHead').textContent='Preview'; timer=setTimeout(()=>vscode.postMessage({type:'search',options:options()}),180); }
+async function select(index){const navigation=++navigationRequest;if((draftDirty||savePromise)&&!await flushInlineEdit())return;if(navigation!==navigationRequest)return;finishInlineEdit();if (!items.length) return; previewInfo=undefined; previewSerial++; selected=Math.max(0,Math.min(index,items.length-1)); updateReplacementButtons(); for(const el of results.querySelectorAll('.result')) el.classList.toggle('selected',Number(el.dataset.id)===selected); results.querySelector(`[data-id="${selected}"]`)?.scrollIntoView({block:'nearest'}); vscode.postMessage({type:'preview',id:selected,columns:previewColumns()});}
 function renderThemed(container,text,spans,start,end){
   if(!Array.isArray(spans))spans=[];
   container.textContent='';
@@ -59,14 +62,14 @@ function previewColumns(){
 }
 function lineHeight(){return (parseFloat(getComputedStyle(preview).fontSize)||13)*1.65;}
 function requestPreviewLines(){
-  if(!previewInfo||previewInfo.id!==selected)return;
+  if(inlineEditor||editBusy||!previewInfo||previewInfo.id!==selected)return;
   const height=lineHeight(), start=Math.max(0,Math.floor(preview.scrollTop/height)-12);
   const end=Math.min(previewInfo.lineCount,start+Math.min(200,Math.ceil(preview.clientHeight/height)+26));
   vscode.postMessage({type:'previewLines',id:selected,start,end,serial:++previewSerial});
 }
 preview.addEventListener('scroll',()=>{if(previewFrame)cancelAnimationFrame(previewFrame);previewFrame=requestAnimationFrame(()=>{previewFrame=undefined;requestPreviewLines();});});
 new ResizeObserver(()=>{
-  if(!previewInfo)return;
+  if(inlineEditor||editBusy||!previewInfo)return;
   const columns=previewColumns();
   if(columns!==previewInfo.columns){previewInfo=undefined;previewSerial++;vscode.postMessage({type:'preview',id:selected,columns});}
   else if(resizing){clearTimeout(previewResizeTimer);previewResizeTimer=setTimeout(requestPreviewLines,100);}
@@ -80,7 +83,7 @@ function drawPreview(m){
   const bottom=document.createElement('div');bottom.style.height=`${Math.max(0,info.lineCount-m.first-m.lines.length)*height}px`;fragment.append(bottom);
   preview.replaceChildren(fragment);
 }
-function append(item){ const row=document.createElement('div'); row.className='result'; row.dataset.id=item.id; row.setAttribute('role','option'); const content=document.createElement('span'); content.className='result-text'; renderThemed(content,item.snippet.text,[],item.snippet.start,item.snippet.end); const file=document.createElement('span'); file.className='file'; file.textContent=`${item.label.split(/[\\/]/).pop()} ${item.line+1}`; file.title=`${item.label}:${item.line+1}`; row.append(content,file); row.addEventListener('click',()=>select(item.id)); row.addEventListener('dblclick',()=>vscode.postMessage({type:'open',id:item.id})); results.append(row); }
+function append(item){ const row=document.createElement('div'); row.className='result'; row.dataset.id=item.id; row.setAttribute('role','option'); const content=document.createElement('span'); content.className='result-text'; renderThemed(content,item.snippet.text,[],item.snippet.start,item.snippet.end); const file=document.createElement('span'); file.className='file'; file.textContent=`${item.label.split(/[\\/]/).pop()} ${item.line+1}`; file.title=`${item.label}:${item.line+1}`; row.append(content,file); row.addEventListener('click',()=>select(item.id)); row.addEventListener('dblclick',async()=>{if(await flushInlineEdit())vscode.postMessage({type:'open',id:item.id});}); results.append(row); }
 for(const id of ['case','word','regex']) $(id).addEventListener('click',()=>{$(id).setAttribute('aria-pressed',String($(id).getAttribute('aria-pressed')!=='true'));schedule();});
 query.addEventListener('input',schedule); $('clearQuery').addEventListener('click',()=>{query.value='';schedule();query.focus();}); $('directory').addEventListener('click',()=>vscode.postMessage({type:'chooseDirectory'})); 
 function closeRoots(restoreFocus=false){
@@ -106,8 +109,8 @@ document.addEventListener('pointerdown',e=>{if(!$('roots').contains(e.target))cl
 window.addEventListener('resize',()=>closeRoots());
 function setScope(value){closeRoots();scope=value; document.querySelectorAll('.scope').forEach(b=>b.classList.toggle('active',b.dataset.scope===scope)); $('roots').hidden=scope!=='folder'; $('directory').hidden=scope!=='directory'; schedule();}
 for(const button of document.querySelectorAll('.scope')) button.addEventListener('click',()=>{if(button.dataset.scope==='directory'&&!selectedDirectory){vscode.postMessage({type:'chooseDirectory'});return;}setScope(button.dataset.scope);});
-$('native').onclick=()=>vscode.postMessage({type:'native',options:options(),newTab:$('newTab').checked});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(!$('replacementReview').hidden)cancelReplacement();else vscode.postMessage({type:'close'});} else if(e.key==='ArrowDown' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected+1);} else if(e.key==='ArrowUp' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected-1);} else if(e.key==='Enter' && selected>=0 && (document.activeElement===query || document.activeElement===results)){e.preventDefault();vscode.postMessage({type:'open',id:selected});}});
+$('native').onclick=async()=>{if(await flushInlineEdit())vscode.postMessage({type:'native',options:options(),newTab:$('newTab').checked});};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(!$('replacementReview').hidden)cancelReplacement();else flushInlineEdit().then(ok=>{if(ok)vscode.postMessage({type:'close'});});} else if(e.key==='ArrowDown' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected+1);} else if(e.key==='ArrowUp' && (document.activeElement===query || document.activeElement===results)){e.preventDefault();select(selected-1);} else if(e.key==='Enter' && selected>=0 && (document.activeElement===query || document.activeElement===results)){e.preventDefault();flushInlineEdit().then(ok=>{if(ok)vscode.postMessage({type:'open',id:selected});});}});
 window.addEventListener('message',event=>{const m=event.data;
  if(m.type==='init'){setReplacementMode(m.replace);selectedDirectory=m.directory||'';$('directoryPath').textContent=selectedDirectory;$('directory').title=selectedDirectory||'Choose search directory';workspaceFolders=m.folders;selectedRoot=workspaceFolders[0]?.uri||'';$('rootLabel').textContent=workspaceFolders[0]?.name||'No workspace folder';$('rootButton').disabled=!workspaceFolders.length; query.value=m.query||'';query.focus();if(query.value)schedule();}
  if(m.type==='replacementPreview' && m.request===replacementRequest){currentPlan=m.plan;replaceBusy=false;showReplacementPreview(m.plan);updateReplacementButtons();}
@@ -119,17 +122,36 @@ window.addEventListener('message',event=>{const m=event.data;
  if(m.type==='append'){if(!items.length){results.textContent='';results.classList.remove('empty-state');preview.hidden=false;splitter.hidden=false;$('previewHead').hidden=false;}for(const item of m.items){items.push(item);append(item);} vscode.postMessage({type:'highlightResults',ids:m.items.map(item=>item.id)}); $('status').textContent=`${m.count} matches in ${m.files} files`;if(selected<0 && items.length)select(0);}
  if(m.type==='done'){searchComplete=!m.error;resultTruncated=!!m.truncated;updateReplacementButtons(); $('status').textContent=`${m.truncated?'First ':''}${m.count} ${m.count===1?'match':'matches'} in ${m.files} ${m.files===1?'file':'files'}${m.truncated?' (limit reached)':''}`;if(m.error){const e=document.createElement('div');e.className='error';e.textContent=m.error;results.append(e);}else if(!m.count)results.innerHTML='<div class="empty">Nothing found</div>';}
  if(m.type==='error'){searchComplete=false;updateReplacementButtons();$('status').textContent='Search unavailable';results.classList.add('empty-state');results.textContent=m.message;}
- if(m.type==='previewInfo' && m.id===selected){
-   previewInfo=m;
-   const previewHead=$('previewHead'), parts=m.label.split(/[\\/]/), name=parts.pop(), filename=document.createElement('span'), folder=document.createElement('span');
-   filename.className='preview-filename'; filename.textContent=name; folder.className='preview-folder'; folder.textContent=parts.join('/');
-   previewHead.replaceChildren(filename,folder); previewHead.title=m.label;preview.textContent='';
-   const placeholder=document.createElement('div');placeholder.style.height=`${m.lineCount*lineHeight()}px`;preview.append(placeholder);
-   preview.scrollTop=Math.max(0,(m.line+0.5)*lineHeight()-preview.clientHeight/2);requestPreviewLines();
+ if(m.type==='previewInfo' && m.id===selected && !inlineEditor && !editBusy){
+   previewInfo=undefined;previewSerial++;editData=m.data;editRequest++;editError='';
+   preview.textContent='';preview.classList.add('editing');
+   const host=document.createElement('div');host.className='inline-editor';preview.append(host);
+   inlineEditor=window.FinderEditor.create(host,m.data,()=>{
+     scheduleEditorSyntax();
+     if(applyingSavedText)return;
+     vscode.postMessage({type:'draftPreview',token:editData.token,text:inlineEditor.text()});
+     draftDirty=inlineEditor.text()!==savedText;if(draftDirty){invalidateReplacement();searchComplete=false;updateReplacementButtons();}updateEditStatus();
+     clearTimeout(editTimer);if(draftDirty&&!editError)editTimer=setTimeout(flushInlineEdit,500);
+   });
+   savedText=inlineEditor.text();draftDirty=false;scheduleEditorSyntax(true);
+   const filename=document.createElement('span');filename.className='preview-filename';filename.textContent=m.data.label;
+   const status=document.createElement('span');status.id='editStatus';status.setAttribute('role','status');
+   $('previewHead').replaceChildren(filename,status);updateEditStatus();
  }
- if(m.type==='previewLines' && previewInfo && m.id===selected && m.serial===previewSerial)drawPreview(m);
+ if(m.type==='previewLines' && !inlineEditor && !editBusy && previewInfo && m.id===selected && m.serial===previewSerial)drawPreview(m);
  if(m.type==='resultSyntax'){for(const result of m.items){const item=items[result.id],element=results.querySelector(`[data-id="${result.id}"] .result-text`);if(item&&element)renderThemed(element,item.snippet.text,result.spans,item.snippet.start,item.snippet.end);}}
- if(m.type==='refreshSyntax'){if(items.length)vscode.postMessage({type:'highlightResults',ids:items.map(item=>item.id)});if(previewInfo)requestPreviewLines();}
+ if(m.type==='editorSyntax' && m.request===editorSyntaxRequest && inlineEditor)inlineEditor.setSyntax(m.spans);
+ if(m.type==='refreshSyntax'){scheduleEditorSyntax(true);if(items.length)vscode.postMessage({type:'highlightResults',ids:items.map(item=>item.id)});if(previewInfo)requestPreviewLines();}
+ if(m.type==='editSaved' && m.request===editRequest){
+   savedText=m.text;
+   if(inlineEditor && inlineEditor.text()===submittedText && m.text!==submittedText){applyingSavedText=true;inlineEditor.setText(m.text);applyingSavedText=false;}
+   draftDirty=!!inlineEditor&&inlineEditor.text()!==savedText;
+   searchComplete=false;updateReplacementButtons();
+   editBusy=false;updateEditStatus();const resolve=savePromise?.resolve;savePromise=undefined;resolve?.(true);
+ }
+ if(m.type==='editError' && m.request===editRequest){
+   editBusy=false;editError=m.message;updateEditStatus();const resolve=savePromise?.resolve;savePromise=undefined;resolve?.(false);
+ }
  if(m.type==='previewError' && m.id===selected)preview.textContent=m.message;
 });
 function updateReplacementButtons(){
@@ -176,3 +198,34 @@ $('applyReplacement').onclick=()=>{
  vscode.postMessage({type:'applyReplacement',request:replacementRequest,id:currentPlan.id});
 };
 vscode.postMessage({type:'ready'});
+
+function updateEditStatus(){
+ const status=$('editStatus');if(!status)return;
+ status.textContent=editError|| (editBusy?'Saving…':draftDirty?'Modified':'');
+ status.title=editError||'Changes are saved automatically';
+}
+async function flushInlineEdit(){
+ clearTimeout(editTimer);
+ if(editError)return false;
+ if(savePromise){if(!await savePromise.promise)return false;return flushInlineEdit();}
+ if(!inlineEditor||!draftDirty)return true;
+ submittedText=inlineEditor.text();editBusy=true;updateEditStatus();
+ const promise=new Promise(resolve=>{savePromise={resolve};});savePromise.promise=promise;
+ vscode.postMessage({type:'savePreview',request:editRequest,token:editData.token,text:submittedText});
+ if(!await promise)return false;
+ return flushInlineEdit();
+}
+function finishInlineEdit(){
+ clearTimeout(editorSyntaxTimer);editorSyntaxRequest++;
+ clearTimeout(editTimer);inlineEditor?.destroy();inlineEditor=undefined;editData=undefined;editBusy=false;draftDirty=false;editRequest++;
+ preview.classList.remove('editing');previewInfo=undefined;editError='';
+}
+preview.addEventListener('focusout',event=>{if(!preview.contains(event.relatedTarget))flushInlineEdit();});
+window.addEventListener('blur',()=>{flushInlineEdit();});
+
+function scheduleEditorSyntax(immediate=false){
+ clearTimeout(editorSyntaxTimer);const request=++editorSyntaxRequest;
+ if(!inlineEditor)return;
+ const send=()=>{if(inlineEditor)vscode.postMessage({type:'editorSyntax',request,id:selected,text:inlineEditor.text()});};
+ if(immediate)send();else editorSyntaxTimer=setTimeout(send,120);
+}

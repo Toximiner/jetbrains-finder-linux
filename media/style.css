@@ -33,3 +33,14 @@ header{min-height:32px;padding:2px 8px}#query{padding:2px 6px}.toggle{padding:3p
 .review-after{background:var(--vscode-diffEditor-insertedTextBackground,#00ff0020)}
 .review-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding-top:16px;flex-wrap:wrap}
 .review-actions span{margin-right:auto;color:var(--vscode-descriptionForeground)}
+
+/* Editable source occupies the same lower pane as the context preview. */
+.preview-head{display:flex;align-items:center;gap:10px;min-height:30px}
+.preview-head .preview-folder{flex:1;min-width:0}
+#editStatus{flex:1;min-width:0;white-space:pre-wrap;color:var(--vscode-descriptionForeground)}
+.preview.editing{overflow:hidden;padding:0}
+.inline-editor{height:100%;min-height:0;text-align:left}
+.cm-editor{height:100%}
+.cm-focused{outline:none!important}
+
+.cm-search-result{background:var(--vscode-editor-findMatchHighlightBackground,#d7ba7d40);outline:1px solid var(--vscode-editor-findMatchHighlightBorder,transparent)}

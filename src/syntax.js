@@ -6,9 +6,9 @@ const jsonc = require('jsonc-parser');
 const plist = require('plist');
 
 const simpleScopes = {
-  comments: ['comment'], strings: ['string'], keywords: ['keyword'],
-  numbers: ['constant.numeric'], types: ['entity.name.type', 'support.type'],
-  functions: ['entity.name.function', 'support.function'], variables: ['variable']
+  comments: ['comment', 'punctuation.definition.comment'], strings: ['string', 'meta.embedded.assembly'], keywords: ['keyword - keyword.operator', 'keyword.control', 'storage', 'storage.type'],
+  numbers: ['constant.numeric'], types: ['entity.name.type', 'entity.name.class', 'support.type', 'support.class'],
+  functions: ['entity.name.function', 'support.function'], variables: ['variable', 'entity.name.variable']
 };
 let onigPromise;
 function onigLib() {

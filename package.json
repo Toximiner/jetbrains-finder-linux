@@ -2,7 +2,7 @@
   "name": "jetbrains-finder-linux",
   "displayName": "JetBrains Finder",
   "description": "JetBrains-style find and replace with live results and code previews. Linux x64 package.",
-  "version": "0.4.1",
+  "version": "0.6.0",
   "publisher": "Toximiner",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://github.com/Toximiner/jetbrains-finder-linux#readme",
@@ -36,6 +36,11 @@
       {
         "command": "jetbrainsFinderLinux.replace",
         "title": "Replace in Files",
+        "category": "JetBrains Finder"
+      },
+      {
+        "command": "jetbrainsFinderLinux.openInNewWindow",
+        "title": "Find in Files (New Window)",
         "category": "JetBrains Finder"
       }
     ],
@@ -75,7 +80,9 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "package": "vsce package --target linux-x64",
-    "check": "node --check src/extension.js && node --check media/main.js && node --check src/replace.js && node --check src/replacementController.js"
+    "check": "node --check src/extension.js && node --check media/main.js && node --check src/replace.js && node --check src/replacementController.js && node --check src/previewEditor.js && node --check media/editor.js && node --check src/editorSyntax.js",
+    "build:editor": "esbuild media/editor.js --bundle --minify --outfile=media/editor.bundle.js --platform=browser --target=es2020",
+    "vscode:prepublish": "npm run build:editor"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.46-24",
@@ -86,7 +93,12 @@
     "vscode-textmate": "^9.3.2"
   },
   "devDependencies": {
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-python": "^6.2.1",
     "@vscode/vsce": "^3.6.0",
+    "codemirror": "^6.0.2",
+    "esbuild": "^0.28.2",
     "jsdom": "26.1.0"
   },
   "icon": "assets/icon.png",

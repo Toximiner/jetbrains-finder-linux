@@ -18,7 +18,7 @@ Alternatively download the Linux VSIX from [GitHub releases](https://github.com/
 
 `Ctrl+Shift+F` opens live search; `Ctrl+Shift+R` opens the same dialog with replacement controls. Remove an earlier local build under `ziishaned.jetbrains-find-in-files` if both copies compete for this shortcut.
 
-Search a workspace in a JetBrains-inspired view with live results and a preview of the selected match. On recent versions of VS Code, the view can open as a floating modal editor over your code.
+Search a workspace in a JetBrains-inspired view with live results and a preview of the selected match. Run **JetBrains Finder: Find in Files (New Window)** from the Command Palette to open Finder in its own VS Code window. The regular command and shortcut continue to open it in the current window. On recent versions of VS Code, the view can also open as a floating modal editor over your code.
 
 ![Find in Files showing search results and a code preview](https://i.imgur.com/JGqIM4A.png)
 
@@ -34,7 +34,7 @@ This is a VS Code-wide preference: **other editors may also open as modals**. Th
 
 ## Use
 
-Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. You can also run **JetBrains Finder: Find in Files** from the Command Palette. A single-line editor selection is used as the initial query.
+Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. You can also run **JetBrains Finder: Find in Files** from the Command Palette. To open Finder in a separate VS Code window, run **JetBrains Finder: Find in Files (New Window)**. A single-line editor selection is used as the initial query.
 
 - Toggle case sensitivity, whole-word matching, and regular expressions beside the search field.
 - Search the whole workspace, a workspace folder, or a directory relative to each workspace folder.
@@ -54,6 +54,14 @@ Press **Ctrl+Shift+R** (or run **JetBrains Finder: Replace in Files**). Enter th
 Regular-expression replacements support JavaScript substitutions such as `$1`, `$<name>`, `$$` and `$&`. The query must be supported by both ripgrep and JavaScript and agree on the match positions.
 
 Replacement requires a completed, successful search without truncation at the 1,000-match limit. Save unsaved files before searching. Changed documents, files changed on disk after review, and expired previews are rejected before applying edits. Applied text changes support VS Code Undo; save again to persist an Undo.
+
+## Edit directly in the preview
+
+The lower pane is an editable CodeMirror editor as soon as you select a result. Click in the code and type; there is no Edit mode or Save button. Changes save automatically after a 500 ms pause, when focus leaves the pane, and before switching results or closing the search. Closing the tab also flushes the latest draft. Undo is available in the embedded editor and text changes use VS Code's WorkspaceEdit API.
+
+The editor includes line numbers, indentation, bracket matching and syntax highlighting from the active VS Code TextMate theme, installed grammars and token color customizations. Theme switches update the colors without resetting the draft or cursor. Semantic token colors supplied by language servers are not available in this embedded editor. This lightweight editor does not provide Pylance, VS Code extension completions or the full main-editor feature set. Inline editing supports files up to 2 MiB and preserves the file's line endings.
+
+Automatic saving checks the document version and disk contents before applying an edit. If another editor or process changed the file, the draft is retained and an error is shown instead of overwriting the change. Closing the search after such a conflict recovers the draft in an untitled editor. Existing search results are a snapshot; rerun the search after editing to refresh them and enable bulk replacement again.
 
 ## Current limitations
 
