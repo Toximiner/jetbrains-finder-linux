@@ -2,7 +2,7 @@
   "name": "jetbrains-finder-linux",
   "displayName": "JetBrains Finder",
   "description": "JetBrains-style find and replace with live results and code previews. Linux x64 package.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "Toximiner",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://github.com/Toximiner/jetbrains-finder-linux#readme",
@@ -24,7 +24,9 @@
   "main": "./src/extension.js",
   "activationEvents": [
     "onCommand:jetbrainsFinderLinux.open",
-    "onCommand:jetbrainsFinderLinux.replace"
+    "onCommand:jetbrainsFinderLinux.replace",
+    "onCommand:jetbrainsFinderLinux.openInNewWindow",
+    "onCommand:jetbrainsFinderLinux.replaceInNewWindow"
   ],
   "contributes": {
     "commands": [
@@ -42,11 +44,16 @@
         "command": "jetbrainsFinderLinux.openInNewWindow",
         "title": "Find in Files (New Window)",
         "category": "JetBrains Finder"
+      },
+      {
+        "command": "jetbrainsFinderLinux.replaceInNewWindow",
+        "title": "Replace in Files (New Window)",
+        "category": "JetBrains Finder"
       }
     ],
     "keybindings": [
       {
-        "command": "jetbrainsFinderLinux.open",
+        "command": "jetbrainsFinderLinux.openInNewWindow",
         "key": "ctrl+shift+f",
         "mac": "cmd+shift+f",
         "when": "!inDebugRepl"
@@ -70,7 +77,7 @@
         "when": "activeWebviewPanelId == jetbrainsFinderLinux"
       },
       {
-        "command": "jetbrainsFinderLinux.replace",
+        "command": "jetbrainsFinderLinux.replaceInNewWindow",
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r",
         "when": "!inDebugRepl"

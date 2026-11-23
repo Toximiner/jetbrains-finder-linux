@@ -236,7 +236,8 @@ async function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('jetbrainsFinderLinux.open', initialQuery => open(initialQuery, false)),
     vscode.commands.registerCommand('jetbrainsFinderLinux.openInNewWindow', initialQuery => open(initialQuery, false, true)),
-    vscode.commands.registerCommand('jetbrainsFinderLinux.replace', initialQuery => open(initialQuery, true))
+    vscode.commands.registerCommand('jetbrainsFinderLinux.replace', initialQuery => open(initialQuery, true)),
+    vscode.commands.registerCommand('jetbrainsFinderLinux.replaceInNewWindow', initialQuery => open(initialQuery, true, true))
   );
 }
 module.exports = { activate };

@@ -16,7 +16,7 @@ The Marketplace identifier remains `Toximiner.jetbrains-finder-linux` so existin
 
 Alternatively download the Linux VSIX from [GitHub releases](https://github.com/Toximiner/jetbrains-finder-linux/releases) and use **Extensions: Install from VSIX…**. A SHA256 checksum is included with each release.
 
-`Ctrl+Shift+F` opens live search; `Ctrl+Shift+R` opens the same dialog with replacement controls. Remove an earlier local build under `ziishaned.jetbrains-find-in-files` if both copies compete for this shortcut.
+`Ctrl+Shift+F` opens live search in a separate VS Code window; `Ctrl+Shift+R` opens search with replacement controls in a separate window. Remove an earlier local build under `ziishaned.jetbrains-find-in-files` if both copies compete for these shortcuts.
 
 Search a workspace in a JetBrains-inspired view with live results and a preview of the selected match. Run **JetBrains Finder: Find in Files (New Window)** from the Command Palette to open Finder in its own VS Code window. The regular command and shortcut continue to open it in the current window. On recent versions of VS Code, the view can also open as a floating modal editor over your code.
 
@@ -34,7 +34,7 @@ This is a VS Code-wide preference: **other editors may also open as modals**. Th
 
 ## Use
 
-Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. You can also run **JetBrains Finder: Find in Files** from the Command Palette. To open Finder in a separate VS Code window, run **JetBrains Finder: Find in Files (New Window)**. A single-line editor selection is used as the initial query.
+Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. These shortcuts open Finder in a separate VS Code window. You can also run **JetBrains Finder: Find in Files** to open in the current window, or **JetBrains Finder: Find in Files (New Window)** to open in a separate window. A single-line editor selection is used as the initial query.
 
 - Toggle case sensitivity, whole-word matching, and regular expressions beside the search field.
 - Search the whole workspace, a workspace folder, or a directory relative to each workspace folder.
@@ -49,7 +49,7 @@ The default shortcut replaces VS Code's built-in Find in Files shortcut while th
 
 ## Replace in Files
 
-Press **Ctrl+Shift+R** (or run **JetBrains Finder: Replace in Files**). Enter the query and replacement, then choose **Replace Selected…** or **Replace All…**. Both show a before/after review; **Apply and Save** applies the edits with VS Code's WorkspaceEdit API and saves only the affected files. **Cancel** changes nothing. Empty replacement deletes matches; literal mode preserves `$` characters literally.
+Press **Ctrl+Shift+R** (or run **JetBrains Finder: Replace in Files**). The shortcut opens a separate VS Code window; the Command Palette command opens in the current window. Enter the query and replacement, then choose **Replace Selected…** or **Replace All…**. Both show a before/after review; **Apply and Save** applies the edits with VS Code's WorkspaceEdit API and saves only the affected files. **Cancel** changes nothing. Empty replacement deletes matches; literal mode preserves `$` characters literally.
 
 Regular-expression replacements support JavaScript substitutions such as `$1`, `$<name>`, `$$` and `$&`. The query must be supported by both ripgrep and JavaScript and agree on the match positions.
 

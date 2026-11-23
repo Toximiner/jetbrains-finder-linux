@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+
+- Make **Ctrl+Shift+F** and **Ctrl+Shift+R** open Find and Replace in a separate VS Code window by default.
+- Keep both actions available from the Command Palette and preserve user-customized keybindings.
+
 ## 0.6.0
 
 - Add **Find in Files (New Window)** to open JetBrains Finder in a separate VS Code window.
