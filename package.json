@@ -2,7 +2,7 @@
   "name": "jetbrains-finder-linux",
   "displayName": "JetBrains Finder",
   "description": "JetBrains-style find and replace with live results and code previews. Linux x64 package.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "publisher": "Toximiner",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://github.com/Toximiner/jetbrains-finder-linux#readme",

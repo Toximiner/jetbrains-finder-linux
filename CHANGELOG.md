@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2
+
+- Document shortcut conflicts with keymap extensions, including JetBrains IDE Keymap, and provide explicit user keybindings to resolve them.
+
 ## 0.6.1
 
 - Make **Ctrl+Shift+F** and **Ctrl+Shift+R** open Find and Replace in a separate VS Code window by default.
