@@ -18,7 +18,7 @@ Alternatively download the Linux VSIX from [GitHub releases](https://github.com/
 
 `Ctrl+Shift+F` opens live search in a separate VS Code window; `Ctrl+Shift+R` opens search with replacement controls in a separate window. Remove an earlier local build under `ziishaned.jetbrains-find-in-files` if both copies compete for these shortcuts.
 
-Search a workspace in a JetBrains-inspired view with live results and a preview of the selected match. Run **JetBrains Finder: Find in Files (New Window)** from the Command Palette to open Finder in its own VS Code window. The regular command and shortcut continue to open it in the current window. On recent versions of VS Code, the view can also open as a floating modal editor over your code.
+Search a workspace in a JetBrains-inspired view with live results and a preview of the selected match. Run **JetBrains Finder: Find in Files (New Window)** from the Command Palette to open Finder in its own VS Code window. The regular **Find in Files** command opens in the current window. On recent versions of VS Code, the view can also open as a floating modal editor over your code.
 
 ![Find in Files showing search results and a code preview](https://i.imgur.com/JGqIM4A.png)
 
@@ -35,6 +35,27 @@ This is a VS Code-wide preference: **other editors may also open as modals**. Th
 ## Use
 
 Open a folder or workspace, then press **Cmd+Shift+F** on macOS or **Ctrl+Shift+F** on Windows/Linux. These shortcuts open Finder in a separate VS Code window. You can also run **JetBrains Finder: Find in Files** to open in the current window, or **JetBrains Finder: Find in Files (New Window)** to open in a separate window. A single-line editor selection is used as the initial query.
+
+### Shortcut conflicts
+
+Keymap extensions may assign the same shortcuts to other commands. For example, **JetBrains IDE Keymap** maps **Ctrl+Shift+F** and **Ctrl+Shift+R** to VS Code's built-in search and replace. If these shortcuts open the built-in views instead of Finder, run **Preferences: Open Keyboard Shortcuts (JSON)** and add explicit bindings:
+
+```json
+[
+  {
+    "key": "ctrl+shift+f",
+    "command": "jetbrainsFinderLinux.openInNewWindow",
+    "when": "!inDebugRepl"
+  },
+  {
+    "key": "ctrl+shift+r",
+    "command": "jetbrainsFinderLinux.replaceInNewWindow",
+    "when": "!inDebugRepl"
+  }
+]
+```
+
+If the file already contains bindings, add these objects to its existing array. Explicit user bindings take precedence over extension defaults.
 
 - Toggle case sensitivity, whole-word matching, and regular expressions beside the search field.
 - Search the whole workspace, a workspace folder, or a directory relative to each workspace folder.
